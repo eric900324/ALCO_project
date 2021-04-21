@@ -10,11 +10,12 @@ using namespace std;
 const vector<string> rType = { "add", "sub", "and", "or", "xor", "sll", "srl", "sra", "slt", "sltu" };
 const vector<string> iType = { "lb", "lbu", "lh", "lhu", "lw", "addi", "slti", "sltiu", "xori", "ori", "andi", "slli", "srli", "srai", "jalr" };
 const vector<string> sType = { "sb", "sh", "sw" };
+const vector<string> bType = { "beq", "bne", "blt", "bge", "bltu", "bgeu" };
 
 const string opcodeR = "0110011";
 const string opcodeS = "0100011";
 const string opcodeLoad = "0000011";
-const string opcodeI = "0100011";
+const string opcodeI = "0010011";
 
 string decimalToBinary( string );
 string fillZero( string& );//FOR RD & RS
@@ -24,6 +25,7 @@ void processS( string, string, string, string& );
 void processLoad( string, string, string, string& );
 void processI( string, string, string, string, string& );
 void processSI( string, string, string, string, string& );
+void processB( string, string, string, string, string&, vector< string > );
 
 int main()
 {
@@ -53,8 +55,28 @@ int main()
             firstData.push_back( s );
     }
     
-    /*for( auto&str : firstData )
-        cout << str << '\n';*/
+    vector<string>_data;//FOR BRANCH-------------
+    
+    for( size_t i = 0; i < firstData.size(); i++ )
+    {
+        if( firstData[ i - 1 ].back() == ':' )
+            continue;
+        
+        string temp = firstData[ i ];
+        for( size_t j = 0; j < temp.size(); j++ )
+        {
+            if( temp[ j ] == '(' || temp[ j ] == ')' )
+                temp[ j ] = ' ';
+        }
+        
+        stringstream ss( temp );
+        string s;
+        while( ss >> s )
+            _data.push_back( s );
+    }
+    
+    
+    
     
     
     //START TO DETERMINE---------------------------------------------------
@@ -62,7 +84,7 @@ int main()
     for( size_t i = 0; i < firstData.size(); i++ )
     {
         string mCode = "";
-        for( size_t r = 0; r < rType.size(); r++ )//R-Type
+        for( size_t r = 0; r < rType.size(); r++ )//R-Type---------
         {
             if( firstData[ i ] == rType[ r ] )
             {
@@ -109,6 +131,18 @@ int main()
             }
         }
         
+        if( mCode != "" )
+            continue;
+        
+        
+        for( size_t b = 0; b < bType.size(); b++ )//B-Type---------
+        {
+            if( firstData[ i ] == bType[ b ] )
+            {
+                processB( firstData[ i ], firstData[ i + 1 ], firstData[ i + 2 ], firstData[ i + 3 ], mCode, _data );
+                i += 3;
+            }
+        }
     }
     
     return 0;
@@ -453,3 +487,108 @@ void processSI( string a, string rd, string rs1, string imm, string &m )
     
     cout << m << '\n';
 }
+
+
+void processB( string b, string rs1, string rs2, string label, string &m, vector< string > data)
+{
+    int i = 0;
+    int j = 0;
+    size_t o = 0;
+    bool flag = true;
+    
+    for( i = 0; i < data.size(); i++ )
+    {
+        if( data[ i ] == label )
+            break;
+    }
+    
+    for( j = 0; j < data.size(); j++ )
+    {
+        flag = true;
+        for( o = 0; o < label.size(); o++ )
+        {
+            if( label[ o ] != data[ j ][ o ] )
+            {
+                flag = false;
+                break;
+            }
+        }
+        if( data[ j ][ o ] == ':' && flag == true )
+            break;
+    }
+
+    int offset = j - i;
+    if( offset > 0 )
+        offset += 1;
+    
+    if( offset > 0 )
+    {
+        offset = offset / 3;
+        if( offset == 0 )
+            offset = 1;
+    }
+    else//offset < 0
+    {
+        if( offset == -7 )
+            offset = -1;
+        else offset = offset / 4;
+    }
+       
+    offset *= 4;
+    
+    string _off = decimalToBinary( to_string( offset ) );
+    immFillZero( _off );
+    //reverse( _off.begin(), _off.end() );
+
+    _off.erase( _off.size() - 1, 1 );
+    immFillZero( _off );
+    reverse( _off.begin(), _off.end() );
+    m += _off[ 11 ];
+    
+    for( int i = 9; i >= 4; i-- )
+        m += _off[ i ];
+    m += " ";
+    
+    rs2.erase( 0, 1 );//ERASE 'x'
+    string _rs2 = decimalToBinary( rs2 );
+    fillZero( _rs2 );
+    m += _rs2;
+    m += " ";
+    
+    rs1.erase( 0, 1 );//ERASE 'x'
+    string _rs1 = decimalToBinary( rs1 );
+    fillZero( _rs1 );
+    m += _rs1;
+    m += " ";
+    
+    string fun3;
+    if( b == "beq" )
+        fun3 = "000";
+    else if ( b == "bne" )
+        fun3 = "001";
+    else if ( b == "blt" )
+        fun3 = "100";
+    else if ( b == "bge" )
+        fun3 = "101";
+    else if ( b == "bltu" )
+        fun3 = "110";
+    else if ( b == "bgeu" )
+        fun3 = "111";
+    m += fun3;
+    m += " ";
+    
+    
+    for( int i = 3; i >= 0; i-- )
+        m += _off[ i ];
+    
+    m += _off[ 10 ];
+    m += " ";
+    
+    m += "1100011";
+    
+    cout << m << endl;
+ }
+
+
+
+
